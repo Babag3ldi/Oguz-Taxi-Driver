@@ -1,14 +1,19 @@
-// ignore_for_file: depend_on_referenced_packages, unused_local_variable, non_constant_identifier_names
+// ignore_for_file: depend_on_referenced_packages, unused_local_variable, non_constant_identifier_names, use_build_context_synchronously, avoid_print
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
-import 'package:oguz_taxi_driver/screen/complate_page.dart';
+import 'package:flutter_osm_plugin/flutter_osm_plugin.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
+import 'package:geolocator/geolocator.dart' as geo;
+import 'package:location/location.dart';
+import 'package:open_route_service/open_route_service.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
+import 'package:oguz_taxi_driver/screen/complate_page.dart';
 import '../const/color_const.dart';
 import '../provider/index_provider.dart';
+import '../provider/map_provider.dart';
 import '../widgets/drawer.dart';
 
 class HomePage extends StatefulWidget {
@@ -18,12 +23,15 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with OSMMixinObserver {
   @override
   void initState() {
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
       alertDialog();
     });
+    scaffoldKey = GlobalKey<ScaffoldState>();
+    fetch();
+    getLocation();
     super.initState();
   }
 
@@ -229,15 +237,140 @@ class _HomePageState extends State<HomePage> {
   bool call = false;
   bool go = false;
 
-  // int selectBottomSheetIndex = -1;
+  late GlobalKey<ScaffoldState> scaffoldKey;
+  geo.Position? _currentPosition;
+  ORSCoordinate? latLng;
+  bool loading = true;
+  @override
+  fetch() async {
+    await _getCurrentPosition();
+    MapController controller = MapController.customLayer(
+      initMapWithUserPosition: true,
+      areaLimit: BoundingBox(
+          east: 58.481078, // Longitude for eastern boundary
+          north: 37.999194, // Latitude for northern boundary
+          south: 37.782570, // Latitude for southern boundary
+          west: 58.301888 // Longitude for western boundary
+          ),
+      customTile: CustomTile(
+        sourceName: "openstreetmap",
+        tileExtension: ".png",
+        minZoomLevel: 10,
+        maxZoomLevel: 19,
+        urlsServers: [TileURLs(url: "https://a.tile.openstreetmap.org/")],
+        tileSize: 256,
+      ),
+    );
+    controller.addObserver(this);
+    Provider.of<MapProvider>(context, listen: false).setMap(controller, latLng);
+  }
+
+  Future<void> _getCurrentPosition() async {
+    final hasPermission = await _handleLocationPermission();
+
+    if (!hasPermission) return;
+    await geo.Geolocator.getCurrentPosition(desiredAccuracy: geo.LocationAccuracy.high)
+        .then((geo.Position position) {
+      setState(() {
+        _currentPosition = position;
+        latLng = ORSCoordinate(
+            latitude: _currentPosition!.latitude,
+            longitude: _currentPosition!.longitude);
+      });
+    }).catchError((e) {
+      debugPrint(e);
+    });
+  }
+
+  Future<bool> _handleLocationPermission() async {
+    bool serviceEnabled;
+    geo.LocationPermission permission;
+
+    serviceEnabled = await geo.Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Location services are disabled. Please enable the services')));
+      return false;
+    }
+    permission = await geo.Geolocator.checkPermission(); 
+    if (permission == geo.LocationPermission.denied) {
+      permission = await geo.Geolocator.requestPermission();
+      if (permission == geo.LocationPermission.denied) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location permissions are denied')));
+        return false;
+      }
+    }
+    if (permission == geo.LocationPermission.deniedForever) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Location permissions are permanently denied, we cannot request permissions.')));
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> mapIsInitialized() async {
+    await Provider.of<MapProvider>(context, listen: false)
+        .controller!
+        .setZoom(zoomLevel: 12);
+    if (mounted) {
+      Provider.of<MapProvider>(context, listen: false)
+          .controller!
+          .changeLocation(GeoPoint(
+              latitude: latLng!.latitude, longitude: latLng!.longitude));
+    }
+    for (int i = 1; i < 4; i++) {
+      Provider.of<MapProvider>(context, listen: false).controller!.zoomIn();
+    }
+    setState(() {
+      loading = false;
+    });
+  }
+
+  @override
+  Future<void> mapIsReady(bool isReady) async {
+    if (isReady) {
+      await mapIsInitialized();
+    }
+  }
+
+  
+
+  void getLocation() async {
+    Location location = Location();
+
+  late bool _serviceEnabled;
+  late PermissionStatus _permissionGranted;
+  late LocationData _locationData;
+    _serviceEnabled = await location.serviceEnabled();
+    if (!_serviceEnabled) {
+      _serviceEnabled = await location.requestService();
+      if (!_serviceEnabled) {
+        return;
+      }
+    }
+
+    _permissionGranted = await location.hasPermission();
+    if (_permissionGranted == PermissionStatus.denied) {
+      _permissionGranted = await location.requestPermission();
+      if (_permissionGranted != PermissionStatus.granted) {
+        return;
+      }
+    }
+
+    _locationData = await location.getLocation();
+    location.onLocationChanged.listen((LocationData event) {
+      print("Lat ${event.latitude}  ve Log ${event.longitude}");
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
     ));
-    MapController mapController = MapController();
-
     double sizeWidth = MediaQuery.of(context).size.width / 100;
     double sizeHeight = MediaQuery.of(context).size.height / 100;
     return WillPopScope(
@@ -278,52 +411,84 @@ class _HomePageState extends State<HomePage> {
         }
       },
       child: Scaffold(
+        key: scaffoldKey,
+        resizeToAvoidBottomInset: false,
         drawer: const Drawer1(),
+        floatingActionButton:
+            Provider.of<MapProvider>(context).controller == null
+                ? null
+                : PointerInterceptor(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: FloatingActionButton(
+                        onPressed: () async {
+                          Provider.of<MapProvider>(context, listen: false)
+                              .controller!
+                              .changeLocation(GeoPoint(
+                                  latitude: latLng!.latitude,
+                                  longitude: latLng!.longitude));
+                          for (int i = 1; i < 6; i++) {
+                            Provider.of<MapProvider>(context, listen: false)
+                                .controller!
+                                .zoomIn();
+                          }
+                        },
+                        child: const Icon(Icons.my_location),
+                      ),
+                    ),
+                  ),
         body: Stack(
           children: [
-            FlutterMap(
-              options: MapOptions(
-                center: LatLng(37.961449, 58.327929),
-                zoom: 15.0,
-              ),
-              children: [
-                TileLayer(
-                  urlTemplate:
-                      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-                  subdomains: const ['a', 'c'],
-                ),
-                PolylineLayer(
-                  polylines: [
-                    Polyline(
-                      points: [],
-                      strokeWidth: 4.0,
-                      color: AppColors.primary,
+            Provider.of<MapProvider>(context).controller == null
+                ? Container(
+                    alignment: Alignment.bottomCenter,
+                    decoration: const BoxDecoration(
+                      image: DecorationImage(
+                        image: AssetImage('assets/images/splash.png'),
+                        fit: BoxFit.fill,
+                      ),
                     ),
-                  ],
-                ),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.only(left: 15, top: 35),
-              child: ClipOval(
-                child: Material(
-                  color: Colors.white,
-                  child: InkWell(
-                    splashColor: AppColors.primary,
-                    onTap: () {
-                      _key.currentState!.openDrawer();
-                    },
-                    child: const SizedBox(
-                        width: 50,
-                        height: 50,
-                        child: Icon(
-                          Icons.menu,
-                          size: 30,
-                        )),
-                  ),
-                ),
-              ),
-            ),
+                    child: const Padding(
+                      padding: EdgeInsets.only(bottom: 20),
+                      child: SpinKitThreeBounce(
+                        color: Colors.white,
+                        size: 32,
+                      ),
+                    ),
+                  )
+                : Stack(children: [
+                    OSMFlutter(
+                      controller: Provider.of<MapProvider>(context).controller!,
+                      // mapIsLoading:  Center(
+                      //   child: Column(
+                      //     mainAxisSize: MainAxisSize.min,
+                      //     mainAxisAlignment: MainAxisAlignment.center,
+                      //     crossAxisAlignment: CrossAxisAlignment.center,
+                      //     children: const [
+                      //       CircularProgressIndicator(),
+                      //       Text("Karta ýüklenýär.."),
+                      //     ],
+                      //   ),
+                      // ),
+                      onMapIsReady: (isReady) {
+                        if (isReady) {
+                          // print("map is ready");
+                        }
+                      },
+                      onLocationChanged: (myLocation) {
+                        print(myLocation);
+                      },
+                      onGeoPointClicked: (geoPoint) async {},
+                      // osmOption: const OSMOption(enableRotationByGesture: true),
+                    ),
+                    Positioned(
+                      left: 10,
+                      top: 20,
+                      child: InkWell(
+                        onTap: () => scaffoldKey.currentState!.openDrawer(),
+                        child: Image.asset("assets/icons/draver.png",)),
+                    ),
+                  ]),
             Positioned.fill(
                 child: Align(
                     alignment: Alignment.topRight,
@@ -331,7 +496,7 @@ class _HomePageState extends State<HomePage> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          SizedBox(
+                          const SizedBox(
                             height: 30,
                           ),
                           InkWell(
@@ -346,7 +511,7 @@ class _HomePageState extends State<HomePage> {
                                     .changeIndex(0);
                               },
                               child: const Text(
-                                'Sabatlayyn',
+                                'Sagatlayyn',
                                 style: TextStyle(fontSize: 20),
                               )),
                           InkWell(
@@ -384,7 +549,6 @@ class _HomePageState extends State<HomePage> {
                     ))),
           ],
         ),
-        key: _key,
         bottomSheet: Provider.of<IndexProvider>(context).selectIndex == -1
             ? null
             : Container(
@@ -915,10 +1079,8 @@ class _HomePageState extends State<HomePage> {
                     padding: const EdgeInsets.only(top: 8.0),
                     child: InkWell(
                       onTap: () {
-                        
-                          Provider.of<IndexProvider>(context, listen: false)
-                              .backBottomSheet();
-                        
+                        Provider.of<IndexProvider>(context, listen: false)
+                            .backBottomSheet();
                       },
                       child: Container(
                         height: 25,
@@ -978,8 +1140,7 @@ class _HomePageState extends State<HomePage> {
               InkWell(
                 onTap: () {
                   Provider.of<IndexProvider>(context, listen: false)
-                          .changeIndex(-1);
-
+                      .changeIndex(-1);
                 },
                 child: Container(
                   height: 45,

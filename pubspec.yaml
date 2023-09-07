@@ -41,12 +41,17 @@ dependencies:
   dio: ^5.3.2
   web_socket_channel: ^2.4.0
   geolocator: any
+  osm_flutter_hooks: any
+  open_route_service: ^1.2.1
+  pointer_interceptor: ^0.9.3+3
+  location: ^5.0.3
   # ui
   flutter_spinkit: ^5.1.0
   pin_code_fields: ^7.4.0
 
   # storage
   hive: ^2.2.3
+  hive_flutter: ^1.1.0
 
   # state management
   provider: ^6.0.5
