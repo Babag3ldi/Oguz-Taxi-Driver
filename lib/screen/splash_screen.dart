@@ -1,6 +1,7 @@
 // ignore_for_file: use_build_context_synchronously, unused_element
 
 import 'dart:async';
+import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
@@ -24,6 +25,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
+    log('initState');
     fetch();
     Timer(
         const Duration(seconds: 3),
@@ -32,24 +34,20 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   fetch() async {
-    initAll() async {
-      if (Hive.isBoxOpen("LoginBox") == false) {
-        await Hive.openBox("LoginBox");
-        loginBox = Hive.box('LoginBox');
-      } else {
-        loginBox = Hive.box('LoginBox');
-      }
-      try {
-        UserModel user = loginBox!.get("user");
-        debugPrint("user1:${user.toString()}");
-        final webSocketService = WebSocketService();
-        webSocketService.initWebSocket(user.token);
-
-        await Provider.of<AppProvider>(context, listen: false).userSet(user);
-      } catch (e) {
-        await Provider.of<AppProvider>(context, listen: false)
-            .initLocalSettings(false, "");
-      }
+    if (Hive.isBoxOpen("LoginBox") == false) {
+      await Hive.openBox("LoginBox");
+      loginBox = Hive.box('LoginBox');
+    } else {
+      loginBox = Hive.box('LoginBox');
+    }
+    try {
+      UserModel? user = loginBox?.get("user");
+      log('$user');
+      debugPrint("user1:${user.toString()}");
+    } catch (e) {
+      log('$e');
+      await Provider.of<AppProvider>(context, listen: false)
+          .initLocalSettings(false, "");
     }
   }
 

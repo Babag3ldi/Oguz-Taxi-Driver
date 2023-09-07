@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -8,7 +9,6 @@ import '../const/enums.dart';
 import '../model/user_model.dart';
 import 'network_class.dart';
 
-
 class LoginApi with ChangeNotifier {
   UserModel? user;
   ApiStatus status = ApiStatus.nothing;
@@ -17,7 +17,8 @@ class LoginApi with ChangeNotifier {
     status = ApiStatus.loading;
     notifyListeners();
     try {
-      var response = await NetworkHandler.http.post("code/email/", data: {'email': email});
+      var response = await NetworkHandler.http
+          .post("${NetworkHandler.baseUrl}code/email/", data: {'email': email});
       // print(response.statusCode);
       if (response.statusCode == 200) {
         status = ApiStatus.success;
@@ -41,7 +42,9 @@ class LoginApi with ChangeNotifier {
     notifyListeners();
 
     try {
-      var response = await NetworkHandler.http.post("code/phone/", data: {'phone': phone});
+      var response = await NetworkHandler.http.post(
+          "${NetworkHandler.baseUrl}authentication/code/phone/",
+          data: {'phone': phone});
       //  print(response.statusCode);
       if (response.statusCode == 200) {
         status = ApiStatus.success;
@@ -60,21 +63,29 @@ class LoginApi with ChangeNotifier {
     }
   }
 
-  Future<void> getToken(String code, String username) async {
+  Future<void> getToken({String? code, String? phone}) async {
     status = ApiStatus.loading;
     notifyListeners();
-    Map<String, String> data = {"username": username, "code": code};
+    Map<String, String> data = {"phone": phone!, "code": code!};
     if (kDebugMode) {
       print(data);
     }
     try {
-      var response = await NetworkHandler.http.post("/token/", data: jsonEncode(data));
+      var response = await NetworkHandler.http.post(
+          "${NetworkHandler.baseUrl}authentication/token/",
+          data: jsonEncode(data));
       //print(response.statusCode);
       if (response.statusCode == 200) {
         status = ApiStatus.success;
-        String token = response.data["token"];
-        user = UserModel.fromJson(response.data);
-        user!.name = username;
+        // String token = response.data["token"];
+        // user = UserModel.fromJson(response.data);
+        log('${response.data}');
+        addUser(
+          UserModel(
+            token: response.data['token'],
+          ),
+        );
+
         //UserModel(token: token, userName: username, name: );
 
         notifyListeners();
@@ -84,9 +95,9 @@ class LoginApi with ChangeNotifier {
 
         await NetworkHandler.setRequestHeaders(
           isLoggedIn: true,
-          token: token,
+          // token: token,
         );
-        await addUser(user!);
+        // await addUser(user!);
 
         return;
       }

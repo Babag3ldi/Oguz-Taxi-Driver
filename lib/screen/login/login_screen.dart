@@ -16,7 +16,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
-      TextEditingController controller = TextEditingController();
+  TextEditingController controller = TextEditingController();
   late AnimationController _controller;
   late Animation<double> _opacity;
   late Animation<double> _transform;
@@ -73,7 +73,6 @@ class _LoginScreenState extends State<LoginScreen>
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        brightness: Brightness.dark,
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -149,7 +148,8 @@ class _LoginScreenState extends State<LoginScreen>
                                               decoration: BoxDecoration(
                                                   color: AppColors.primary,
                                                   borderRadius:
-                                                      BorderRadius.circular(2.5)),
+                                                      BorderRadius.circular(
+                                                          2.5)),
                                             )
                                           ],
                                         ),
@@ -185,27 +185,36 @@ class _LoginScreenState extends State<LoginScreen>
                                       Center(
                                         child: InkWell(
                                             onTap: () async {
-                                             
-                                            if (controller.text.isEmpty) {
-                                              showmessages("Telefon belgiňizi ýazyň");
-                                              return;
-                                            }
-                                            if (controller.text.length != 8) {
-                                              showmessages("Telefon belgi ýalňyş ");
-                                              return;
-                                            }
-                                            if (formKey.currentState!.validate()) {
-                                              await Provider.of<LoginApi>(context, listen: false).sendCodePhone(controller.text);
-                                              if (mounted) {
-                                                Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                      builder: (context) => PinCodeVerificationScreen(
-                                                            phoneNumber: controller.text,
-                                                          )),
-                                                );
+                                              if (controller.text.isEmpty) {
+                                                showmessages(
+                                                    "Telefon belgiňizi ýazyň");
+                                                return;
                                               }
-                                            } else {}
+                                              if (controller.text.length != 8) {
+                                                showmessages(
+                                                    "Telefon belgi ýalňyş ");
+                                                return;
+                                              }
+                                              if (formKey.currentState!
+                                                  .validate()) {
+                                                await Provider.of<LoginApi>(
+                                                        context,
+                                                        listen: false)
+                                                    .sendCodePhone(
+                                                        controller.text);
+                                                if (mounted) {
+                                                  Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                        builder: (context) =>
+                                                            PinCodeVerificationScreen(
+                                                              phoneNumber:
+                                                                  controller
+                                                                      .text,
+                                                            )),
+                                                  );
+                                                }
+                                              } else {}
                                             },
                                             child: LoginButton('Next')),
                                       ),
@@ -232,8 +241,6 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   final formKey = GlobalKey<FormState>();
-
-  
 
   Widget loginNumber(String hintText, bool isPassword, bool isEmail) {
     Size size = MediaQuery.of(context).size;

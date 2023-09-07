@@ -1,19 +1,24 @@
 // ignore_for_file: depend_on_referenced_packages, unused_local_variable, non_constant_identifier_names, use_build_context_synchronously, avoid_print
 
+import 'dart:developer';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_osm_plugin/flutter_osm_plugin.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:geolocator/geolocator.dart' as geo;
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:location/location.dart';
 import 'package:open_route_service/open_route_service.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 import 'package:oguz_taxi_driver/screen/complate_page.dart';
 import '../const/color_const.dart';
+import '../provider/app_provider.dart';
 import '../provider/index_provider.dart';
 import '../provider/map_provider.dart';
+import '../services/web_socket.dart';
 import '../widgets/drawer.dart';
 
 class HomePage extends StatefulWidget {
@@ -24,6 +29,8 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> with OSMMixinObserver {
+  final webSocketService = WebSocketService();
+
   @override
   void initState() {
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
@@ -31,6 +38,7 @@ class _HomePageState extends State<HomePage> with OSMMixinObserver {
     });
     scaffoldKey = GlobalKey<ScaffoldState>();
     fetch();
+
     getLocation();
     super.initState();
   }
@@ -241,8 +249,15 @@ class _HomePageState extends State<HomePage> with OSMMixinObserver {
   geo.Position? _currentPosition;
   ORSCoordinate? latLng;
   bool loading = true;
-  @override
   fetch() async {
+    final box = Hive.box('LoginBox');
+
+    final hive = await Hive.openBox('LoginBox');
+    final user = await box.get('user');
+    log('init');
+    webSocketService.initWebSocket(user!.token);
+
+    await Provider.of<AppProvider>(context, listen: false).userSet(user);
     await _getCurrentPosition();
     MapController controller = MapController.customLayer(
       initMapWithUserPosition: true,
@@ -269,7 +284,8 @@ class _HomePageState extends State<HomePage> with OSMMixinObserver {
     final hasPermission = await _handleLocationPermission();
 
     if (!hasPermission) return;
-    await geo.Geolocator.getCurrentPosition(desiredAccuracy: geo.LocationAccuracy.high)
+    await geo.Geolocator.getCurrentPosition(
+            desiredAccuracy: geo.LocationAccuracy.high)
         .then((geo.Position position) {
       setState(() {
         _currentPosition = position;
@@ -293,7 +309,7 @@ class _HomePageState extends State<HomePage> with OSMMixinObserver {
               'Location services are disabled. Please enable the services')));
       return false;
     }
-    permission = await geo.Geolocator.checkPermission(); 
+    permission = await geo.Geolocator.checkPermission();
     if (permission == geo.LocationPermission.denied) {
       permission = await geo.Geolocator.requestPermission();
       if (permission == geo.LocationPermission.denied) {
@@ -336,14 +352,12 @@ class _HomePageState extends State<HomePage> with OSMMixinObserver {
     }
   }
 
-  
-
   void getLocation() async {
     Location location = Location();
 
-  late bool _serviceEnabled;
-  late PermissionStatus _permissionGranted;
-  late LocationData _locationData;
+    late bool _serviceEnabled;
+    late PermissionStatus _permissionGranted;
+    late LocationData _locationData;
     _serviceEnabled = await location.serviceEnabled();
     if (!_serviceEnabled) {
       _serviceEnabled = await location.requestService();
@@ -362,7 +376,7 @@ class _HomePageState extends State<HomePage> with OSMMixinObserver {
 
     _locationData = await location.getLocation();
     location.onLocationChanged.listen((LocationData event) {
-      print("Lat ${event.latitude}  ve Log ${event.longitude}");
+      webSocketService.sendMessage(event);
     });
   }
 
@@ -485,8 +499,10 @@ class _HomePageState extends State<HomePage> with OSMMixinObserver {
                       left: 10,
                       top: 20,
                       child: InkWell(
-                        onTap: () => scaffoldKey.currentState!.openDrawer(),
-                        child: Image.asset("assets/icons/draver.png",)),
+                          onTap: () => scaffoldKey.currentState!.openDrawer(),
+                          child: Image.asset(
+                            "assets/icons/draver.png",
+                          )),
                     ),
                   ]),
             Positioned.fill(
@@ -626,19 +642,17 @@ class _HomePageState extends State<HomePage> with OSMMixinObserver {
                     ),
                   ],
                 ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 10),
-                  child: Divider(
-                    color: Colors.black,
-                  ),
+                Divider(
+                  color: Colors.black,
                 ),
+
                 const Text(
                   'Rowsen Muhyyew',
                   style: TextStyle(fontSize: 18),
                 ),
-                SizedBox(
-                  height: sizeHeight * 2,
-                ),
+                // SizedBox(
+                //   height: sizeHeight * 2,
+                // ),
                 const Text(
                   '+99364929340',
                   style: TextStyle(fontSize: 16, color: Colors.grey),
@@ -667,12 +681,10 @@ class _HomePageState extends State<HomePage> with OSMMixinObserver {
                   '+köç.Oguz Han, 123',
                   style: TextStyle(fontSize: 12, color: Colors.grey),
                 ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 10),
-                  child: Divider(
-                    color: Colors.black,
-                  ),
+                Divider(
+                  color: Colors.black,
                 ),
+
                 Row(
                   children: [
                     Image.asset('assets/icons/green_box.png'),
