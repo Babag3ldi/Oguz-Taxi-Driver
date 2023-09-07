@@ -16,7 +16,7 @@ import '../home_page.dart';
 class PinCodeVerificationScreen extends StatefulWidget {
   final String phoneNumber;
 
-  const PinCodeVerificationScreen( {required this.phoneNumber, super.key});
+  const PinCodeVerificationScreen({required this.phoneNumber, super.key});
 
   @override
   _PinCodeVerificationScreenState createState() =>
@@ -54,7 +54,6 @@ class _PinCodeVerificationScreenState extends State<PinCodeVerificationScreen> {
 
   final otpController = TextEditingController();
   String code = "";
-
 
   @override
   Widget build(BuildContext context) {
@@ -152,7 +151,7 @@ class _PinCodeVerificationScreenState extends State<PinCodeVerificationScreen> {
                       borderRadius: BorderRadius.circular(5),
                       selectedFillColor: Colors.white,
                       inactiveFillColor: Colors.white,
-                      selectedColor:  Color(0xFFD8D8D8),
+                      selectedColor: Color(0xFFD8D8D8),
                       inactiveColor: Color(0xFFD8D8D8),
                       disabledColor: Color(0xFFD8D8D8),
                       activeColor: Color(0xFFD8D8D8),
@@ -171,20 +170,27 @@ class _PinCodeVerificationScreenState extends State<PinCodeVerificationScreen> {
                     controller: textEditingController,
                     keyboardType: TextInputType.number,
                     onCompleted: (value) async {
-                    debugPrint("yes");
-                    setState(() {
-                      code = value;
-                    });
-                    await Provider.of<LoginApi>(context, listen: false).getToken(code, widget.phoneNumber);
-                    if (mounted && providerLogin.user != null) {
-                      await Provider.of<AppProvider>(context, listen: false).userSet(providerLogin.user!);
-                    }
-                    if (providerLogin.status == ApiStatus.success) {
-                      showmessages("Üstünlikli").then((value) => Navigator.of(context).pushNamed('/home'));
-                    } else {
-                      showmessages("Ýalňyş");
-                    }
-                  },
+                      debugPrint("yes");
+                      setState(() {
+                        code = value;
+                      });
+                      await Provider.of<LoginApi>(context, listen: false)
+                          .getToken(code: code, phone: widget.phoneNumber);
+                      if (mounted && providerLogin.user != null) {
+                        await Provider.of<AppProvider>(context, listen: false)
+                            .userSet(providerLogin.user!);
+                      }
+                      if (providerLogin.status == ApiStatus.success) {
+                        showmessages("Üstünlikli").then(
+                            (value) => Navigator.of(context).pushReplacement(
+                                  MaterialPageRoute(
+                                    builder: (ctx) => HomePage(),
+                                  ),
+                                ));
+                      } else {
+                        showmessages("Ýalňyş");
+                      }
+                    },
                     onChanged: (value) {
                       print(value);
                       setState(() {
@@ -237,7 +243,8 @@ class _PinCodeVerificationScreenState extends State<PinCodeVerificationScreen> {
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => const HomePage()),
+                          MaterialPageRoute(
+                              builder: (context) => const HomePage()),
                         );
                       },
                       child: VerifyButton('Tassyklamak'))),
@@ -248,7 +255,7 @@ class _PinCodeVerificationScreenState extends State<PinCodeVerificationScreen> {
     );
   }
 
-   showmessages(String message) {
+  Future showmessages(String message) async {
     ScaffoldMessenger.of(context).removeCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(
